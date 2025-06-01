@@ -5,7 +5,7 @@ import plotly.express as px
 st.set_page_config(page_title="Intern Progress Tracker", layout="wide")
 st.title("📘 Intern Weekly Progress Tracker")
 
-# Upload CSV
+# 📤 Upload CSV
 uploaded_file = st.file_uploader("📤 Upload CSV file with intern progress", type=["csv"])
 
 if uploaded_file is not None:
@@ -23,7 +23,7 @@ if uploaded_file is not None:
         "Completed": "🟢"
     }
 
-    # 🔢 Calculate team participation %
+    # 🔢 Calculate team completion percentages
     team_summary = []
     for team_id in df["Team ID"].unique():
         team_df = df[df["Team ID"] == team_id]
@@ -34,11 +34,11 @@ if uploaded_file is not None:
         completion_percent = round((completed_count / total_possible) * 100, 2)
         team_summary.append((team_id, completion_percent))
 
-    team_summary.sort(key=lambda x: x[1], reverse=True)
-    sorted_teams = [t[0] for t in team_summary]
+    # 🚫 No sorting — retain order from CSV
+    ordered_teams = df["Team ID"].drop_duplicates().tolist()
 
-    # 🧭 Sidebar menu
-    team_selected = st.sidebar.selectbox("📌 Select a Team", sorted_teams)
+    # 🧭 Sidebar: select a team
+    team_selected = st.sidebar.selectbox("📌 Select a Team", ordered_teams)
 
     # 🌐 Show selected team info
     team_df = df[df["Team ID"] == team_selected]
@@ -47,8 +47,8 @@ if uploaded_file is not None:
 
     st.markdown(f"👨‍💼 **Team Lead:** `{lead}`")
 
+    # 🔥 Progress Heatmap (Emoji only)
     st.markdown("### 🔥 Progress Heatmap")
-
     st.markdown("""
     **Legend:**  
     🟢 Completed &nbsp;&nbsp;&nbsp; 🟡 Partially Completed &nbsp;&nbsp;&nbsp; 🔴 Not Started &nbsp;&nbsp;&nbsp; ❓ Unknown
@@ -69,27 +69,46 @@ if uploaded_file is not None:
         heatmap_data.append(row)
 
     emoji_df = pd.DataFrame(heatmap_data)
-
-    # Sort by Completion % (descending)
     emoji_df = emoji_df.sort_values(by="Completion %", ascending=False).reset_index(drop=True)
-
     st.dataframe(emoji_df, use_container_width=True)
 
-    # 🥧 Pie Chart: Total course status for the team
+    # 📊 Intern Completion Bar Chart
+    st.markdown("### 📊 Intern Completion Percentage")
+    bar_fig = px.bar(
+        emoji_df,
+        x="Intern",
+        y="Completion %",
+        text="Completion %",
+        color="Completion %",
+        color_continuous_scale="viridis",
+        title="Intern-wise Completion Percentage"
+    )
+    st.plotly_chart(bar_fig, use_container_width=True)
+
+    # 🥧 Pie Chart: Overall course status
     st.markdown("### 🥧 Overall Course Completion Status")
     all_statuses = []
     for topic in topics:
         all_statuses.extend(team_df[topic].tolist())
 
     status_count = pd.Series(all_statuses).value_counts().rename_axis("Status").reset_index(name="Count")
-    fig = px.pie(status_count, names="Status", values="Count",
-                 title="Course Progress Distribution",
-                 color_discrete_map={
-                     "Completed": "#2ecc71",
-                     "Partially Completed": "#f1c40f",
-                     "Not Started": "#e74c3c"
-                 })
+    fig = px.pie(
+        status_count,
+        names="Status",
+        values="Count",
+        title="Course Progress Distribution",
+        color_discrete_map={
+            "Completed": "#2ecc71",
+            "Partially Completed": "#f1c40f",
+            "Not Started": "#e74c3c"
+        }
+    )
     st.plotly_chart(fig, use_container_width=True)
+
+    # 🏆 Team Ranking Table
+    st.markdown("### 🏆 Team Completion Ranking")
+    team_rank_df = pd.DataFrame(team_summary, columns=["Team ID", "Completion %"])
+    st.dataframe(team_rank_df.sort_values(by="Completion %", ascending=False).reset_index(drop=True), use_container_width=True)
 
 else:
     st.info("📂 Please upload a CSV file to begin.")
